@@ -13,7 +13,8 @@
   motherCol,
   phasedData,
   bimIdx = match(snpId, bim$snp),
-  rowIdx = match(snpId, rownames(genoSubset))
+  rowIdx = match(snpId, rownames(genoSubset)),
+  inheritance = .inheritanceIndex(phasedData)
 )
 }
 \arguments{
@@ -35,6 +36,10 @@ Defaults to \code{match(snpId, bim$snp)}.}
 
 \item{rowIdx}{Row of \code{genoSubset} for the SNP, passed for the same
 reason. Defaults to \code{match(snpId, rownames(genoSubset))}.}
+
+\item{inheritance}{Inheritance index of \code{phasedData} (see
+\code{.inheritanceIndex()}), passed for the same reason. Defaults to
+\code{.inheritanceIndex(phasedData)}.}
 }
 \value{
 Named character vector with one value per column of phasedData:

@@ -766,6 +766,43 @@ test_that(".inheritedHaplotype reads the haplotype from both sides", {
     )))
 })
 
+test_that(".inheritanceIndex gives the same answers as .inheritedHaplotype", {
+    set.seed(1)
+    n <- 400
+    alleles <- c("A", "C", "G", "T")
+    pick <- function(k) sample(c(alleles, NA), k, replace = TRUE,
+        prob = c(rep(0.23, 4), 0.08))
+    hap1 <- pick(n)
+    ## Haplotypes the same at some SNPs, so those SNPs are not usable
+    hap2 <- ifelse(runif(n) < 0.2, hap1, pick(n))
+    ## Unsorted positions with ties, and a missing position
+    positions <- sample(seq(1000, 5000, by = 10), n, replace = TRUE)
+    positions[7] <- NA
+    child <- ifelse(runif(n) < 0.5, hap1, hap2)
+    child[sample(n, 30)] <- NA
+    phasedData <- data.frame(
+        rsID = paste0("rs", seq_len(n)), location = as.character(positions),
+        P_1 = hap1, P_2 = hap2, C1Pat = child, stringsAsFactors = FALSE
+    )
+    index <- inferRecom:::.inheritanceIndex(phasedData)
+
+    ## Between, at, and beyond the phased SNPs, and a missing position
+    queries <- c(500, 990, 1000, 1005, sort(unique(positions)), 2345, 5000,
+        5005, 9999, NA)
+    expected <- vapply(queries, function(p) {
+        inferRecom:::.inheritedHaplotype(child, hap1, hap2, positions, p)
+    }, integer(1))
+    observed <- vapply(queries, function(p) index("C1Pat", "P", p), integer(1))
+    expect_identical(observed, expected)
+    expect_true(any(expected == 1L, na.rm = TRUE))
+    expect_true(any(expected == 2L, na.rm = TRUE))
+    expect_true(anyNA(expected))
+
+    ## A child or parent without columns gives NA, as .inheritedHaplotype does
+    expect_true(is.na(index("C2Pat", "P", 2000)))
+    expect_true(is.na(index("C1Pat", "Q", 2000)))
+})
+
 test_that(".phaseOneHeterozygous phases the parent from the children", {
     # Phased SNPs either side of position 300. The father is heterozygous
     # there; C1 inherited his haplotype 1, C2 his haplotype 2, and C3 has a

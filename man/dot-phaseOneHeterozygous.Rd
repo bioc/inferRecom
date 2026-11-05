@@ -4,7 +4,15 @@
 \alias{.phaseOneHeterozygous}
 \title{Phase a SNP Where One Parent Is Heterozygous}
 \usage{
-.phaseOneHeterozygous(parentGeno, childGeno, alleles, ids, snpPos, phasedData)
+.phaseOneHeterozygous(
+  parentGeno,
+  childGeno,
+  alleles,
+  ids,
+  snpPos,
+  phasedData,
+  inheritance = .inheritanceIndex(phasedData)
+)
 }
 \arguments{
 \item{parentGeno}{Father and mother genotypes, one of them 1}
@@ -18,6 +26,9 @@
 \item{snpPos}{Physical position of the SNP}
 
 \item{phasedData}{Data frame with phased informative SNPs}
+
+\item{inheritance}{Inheritance index of \code{phasedData} (see
+\code{.inheritanceIndex()})}
 }
 \value{
 Named character vector of phased alleles

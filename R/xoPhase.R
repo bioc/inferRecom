@@ -385,14 +385,16 @@ xoPhase <- function(plinkFile,
         children = unique(gsub("(Pat|Mat)$", "", childCols))
     )
 
-    ## Phase each non-informative SNP; one character row per SNP
+    ## Phase each non-informative SNP; one character row per SNP. The SNP
+    ## rows and the inheritance index are built once for all SNPs.
     bimIdx <- match(nonInfSnps, bim$snp)
     rowIdx <- match(nonInfSnps, rownames(genoSubset))
+    inheritance <- .inheritanceIndex(phasedData)
     nonInfMatrix <- t(vapply(seq_along(nonInfSnps), function(i) {
         .phaseNonInformativeSnp(
             nonInfSnps[i], genoSubset, bim, ids, fatherCol, motherCol,
             phasedData,
-            bimIdx = bimIdx[i], rowIdx = rowIdx[i]
+            bimIdx = bimIdx[i], rowIdx = rowIdx[i], inheritance = inheritance
         )
     }, character(ncol(phasedData))))
     colnames(nonInfMatrix) <- colnames(phasedData)
@@ -422,6 +424,9 @@ xoPhase <- function(plinkFile,
 #'     Defaults to \code{match(snpId, bim$snp)}.
 #' @param rowIdx Row of \code{genoSubset} for the SNP, passed for the same
 #'     reason. Defaults to \code{match(snpId, rownames(genoSubset))}.
+#' @param inheritance Inheritance index of \code{phasedData} (see
+#'     \code{.inheritanceIndex()}), passed for the same reason. Defaults to
+#'     \code{.inheritanceIndex(phasedData)}.
 #'
 #' @return Named character vector with one value per column of phasedData:
 #'     the SNP ID, its location and the phased alleles, NA where unknown. All
@@ -429,7 +434,8 @@ xoPhase <- function(plinkFile,
 #' @keywords internal
 .phaseNonInformativeSnp <- function(snpId, genoSubset, bim, ids, fatherCol,
     motherCol, phasedData, bimIdx = match(snpId, bim$snp),
-    rowIdx = match(snpId, rownames(genoSubset))) {
+    rowIdx = match(snpId, rownames(genoSubset)),
+    inheritance = .inheritanceIndex(phasedData)) {
     row <- setNames(
         rep(NA_character_, ncol(phasedData)), colnames(phasedData)
     )
@@ -452,14 +458,16 @@ xoPhase <- function(plinkFile,
         character()
     } else if (all(hetParents)) {
         .phaseBothHeterozygous(
-            childGeno, alleles, ids, bim$pos[bimIdx], phasedData
+            childGeno, alleles, ids, bim$pos[bimIdx], phasedData,
+            inheritance = inheritance
         )
     } else if (!any(hetParents)) {
         .phaseBothHomozygous(parentGeno, childGeno, alleles, ids)
     } else {
         .phaseOneHeterozygous(
             parentGeno, childGeno, alleles, ids,
-            bim$pos[bimIdx], phasedData
+            bim$pos[bimIdx], phasedData,
+            inheritance = inheritance
         )
     }
 
@@ -517,11 +525,13 @@ xoPhase <- function(plinkFile,
 #' @param ids List with \code{father}, \code{mother} and \code{children} IDs
 #' @param snpPos Physical position of the SNP
 #' @param phasedData Data frame with phased informative SNPs
+#' @param inheritance Inheritance index of \code{phasedData} (see
+#'     \code{.inheritanceIndex()})
 #'
 #' @return Named character vector of phased alleles
 #' @keywords internal
 .phaseOneHeterozygous <- function(parentGeno, childGeno, alleles, ids,
-    snpPos, phasedData) {
+    snpPos, phasedData, inheritance = .inheritanceIndex(phasedData)) {
     hetParent <- if (parentGeno[[1]] == 1) "father" else "mother"
     hetId <- ids[[hetParent]]
     homId <- if (hetParent == "father") ids$mother else ids$father
@@ -539,7 +549,8 @@ xoPhase <- function(plinkFile,
 
     ## Alleles the children imply for the heterozygous parent's haplotype 1
     impliedHap1 <- .impliedHap1Alleles(
-        received[children], alleles, phasedData, hetId, hetSuffix, snpPos
+        received[children], alleles, phasedData, hetId, hetSuffix, snpPos,
+        inheritance = inheritance
     )
 
     phased <- c(
@@ -579,11 +590,13 @@ xoPhase <- function(plinkFile,
 #' @param ids List with \code{father}, \code{mother} and \code{children} IDs
 #' @param snpPos Physical position of the SNP
 #' @param phasedData Data frame with phased informative SNPs
+#' @param inheritance Inheritance index of \code{phasedData} (see
+#'     \code{.inheritanceIndex()})
 #'
 #' @return Named character vector of phased alleles
 #' @keywords internal
 .phaseBothHeterozygous <- function(childGeno, alleles, ids, snpPos,
-    phasedData) {
+    phasedData, inheritance = .inheritanceIndex(phasedData)) {
     ## Homozygous children received the same allele from both parents
     hom <- childGeno %in% c(0, 2)
     received <- setNames(alleles[childGeno[hom] / 2 + 1], ids$children[hom])
@@ -600,7 +613,8 @@ xoPhase <- function(plinkFile,
         } else {
             .impliedHap1Alleles(
                 received, alleles, phasedData, ids[[parent]],
-                suffix[[parent]], snpPos
+                suffix[[parent]], snpPos,
+                inheritance = inheritance
             )
         }
         if (length(impliedHap1) != 1L) {
@@ -621,7 +635,8 @@ xoPhase <- function(plinkFile,
         fromParents <- vapply(names(suffix), function(parent) {
             .transmittedAllele(
                 child, suffix[[parent]], ids[[parent]],
-                parentHaps[[parent]], phasedData, snpPos
+                parentHaps[[parent]], phasedData, snpPos,
+                inheritance = inheritance
             )
         }, character(1))
         childAlleles <- .completeHeterozygote(fromParents, alleles)
@@ -643,22 +658,19 @@ xoPhase <- function(plinkFile,
 #'     or NULL if the parent is not phased there
 #' @param phasedData Data frame with phased informative SNPs
 #' @param snpPos Physical position of the SNP
+#' @param inheritance Inheritance index of \code{phasedData} (see
+#'     \code{.inheritanceIndex()})
 #'
 #' @return The allele on the haplotype the child inherited around the SNP
 #'     (see \code{.inheritedHaplotype()}), or NA if unknown
 #' @keywords internal
 .transmittedAllele <- function(child, suffix, parentId, parentHaps,
-    phasedData, snpPos) {
+    phasedData, snpPos, inheritance = .inheritanceIndex(phasedData)) {
     if (is.null(parentHaps)) {
         return(NA_character_)
     }
 
-    inherited <- .inheritedHaplotype(
-        phasedData[[paste0(child, suffix)]],
-        phasedData[[paste0(parentId, "_1")]],
-        phasedData[[paste0(parentId, "_2")]],
-        as.numeric(phasedData$location), snpPos
-    )
+    inherited <- inheritance(paste0(child, suffix), parentId, snpPos)
     if (is.na(inherited)) NA_character_ else parentHaps[[inherited]]
 }
 
@@ -700,21 +712,16 @@ xoPhase <- function(plinkFile,
 #' @param hetSuffix Suffix of the children's haplotype columns from that
 #'     parent ("Pat" or "Mat")
 #' @param snpPos Physical position of the SNP
+#' @param inheritance Inheritance index of \code{phasedData} (see
+#'     \code{.inheritanceIndex()})
 #'
 #' @return The distinct alleles implied for the parent's haplotype 1 by the
 #'     children that give evidence
 #' @keywords internal
 .impliedHap1Alleles <- function(received, alleles, phasedData, hetId,
-    hetSuffix, snpPos) {
-    hap1 <- phasedData[[paste0(hetId, "_1")]]
-    hap2 <- phasedData[[paste0(hetId, "_2")]]
-    positions <- as.numeric(phasedData$location)
-
+    hetSuffix, snpPos, inheritance = .inheritanceIndex(phasedData)) {
     implied <- vapply(names(received), function(child) {
-        inherited <- .inheritedHaplotype(
-            phasedData[[paste0(child, hetSuffix)]], hap1, hap2,
-            positions, snpPos
-        )
+        inherited <- inheritance(paste0(child, hetSuffix), hetId, snpPos)
         if (is.na(inherited)) {
             return(NA_character_)
         }
@@ -753,6 +760,78 @@ xoPhase <- function(plinkFile,
         inherited[right][which.min(positions[right])]
     ))
     if (length(sides) == 1L) sides else NA_integer_
+}
+
+#' Index of Which Haplotype Each Child Inherited
+#'
+#' Gives the same answer as \code{.inheritedHaplotype()}, but scans the
+#' phased SNPs once per child and parent instead of once per SNP looked up.
+#' For each child and parent it keeps the usable phased SNPs (the parent's
+#' two haplotypes differ and the child's allele from that parent is known),
+#' sorted by position, with the haplotype the child inherited at each; a
+#' lookup is then a binary search (\code{findInterval()}). Where several
+#' usable SNPs share the nearest position, the first in \code{phasedData}
+#' is used, as in \code{.inheritedHaplotype()}.
+#'
+#' @param phasedData Data frame with phased informative SNPs
+#'
+#' @return A function of \code{childCol} (the child's haplotype column for
+#'     the parent, e.g. \code{"F1C1Pat"}), \code{parentId} and \code{snpPos}
+#'     that returns 1, 2 or NA, as \code{.inheritedHaplotype()} does. Each
+#'     child and parent pair is indexed the first time it is looked up.
+#' @keywords internal
+.inheritanceIndex <- function(phasedData) {
+    positions <- as.numeric(phasedData$location)
+    cache <- new.env(parent = emptyenv())
+
+    build <- function(childCol, parentId) {
+        childAlleles <- phasedData[[childCol]]
+        hap1 <- phasedData[[paste0(parentId, "_1")]]
+        hap2 <- phasedData[[paste0(parentId, "_2")]]
+        if (is.null(childAlleles) || is.null(hap1) || is.null(hap2)) {
+            return(list(pos = numeric(), inherited = integer()))
+        }
+        inherited <- ifelse(childAlleles == hap1, 1L,
+            ifelse(childAlleles == hap2, 2L, NA_integer_)
+        )
+        usable <- which(!is.na(inherited) & hap1 != hap2 & !is.na(positions))
+        ## order() is stable, so tied positions keep their phasedData order
+        usable <- usable[order(positions[usable])]
+        list(pos = positions[usable], inherited = inherited[usable])
+    }
+
+    function(childCol, parentId, snpPos) {
+        key <- paste(childCol, parentId, sep = "\r")
+        idx <- cache[[key]]
+        if (is.null(idx)) {
+            idx <- build(childCol, parentId)
+            assign(key, idx, envir = cache)
+        }
+        if (is.na(snpPos) || length(idx$pos) == 0L) {
+            return(NA_integer_)
+        }
+
+        ## Nearest usable SNP strictly left (first of any tied position) and
+        ## strictly right of snpPos. idx$pos is sorted with no NA (see
+        ## build()), so findInterval() need not check it on every call.
+        bisect <- function(x, leftOpen = FALSE) {
+            findInterval(x, idx$pos,
+                left.open = leftOpen,
+                checkSorted = FALSE, checkNA = FALSE
+            )
+        }
+        nLeft <- bisect(snpPos, leftOpen = TRUE)
+        left <- if (nLeft > 0L) {
+            idx$inherited[bisect(idx$pos[nLeft], leftOpen = TRUE) + 1L]
+        }
+        firstRight <- bisect(snpPos) + 1L
+        right <- if (firstRight <= length(idx$pos)) {
+            idx$inherited[firstRight]
+        }
+
+        sides <- unique(c(left, right))
+        if (length(sides) == 1L) sides else NA_integer_
+    }
 }
 
 #' Get Informative Genotypes for Phasing

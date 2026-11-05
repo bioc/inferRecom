@@ -4,7 +4,15 @@
 \alias{.impliedHap1Alleles}
 \title{Heterozygous Parent's Haplotype 1 as Implied by Each Child}
 \usage{
-.impliedHap1Alleles(received, alleles, phasedData, hetId, hetSuffix, snpPos)
+.impliedHap1Alleles(
+  received,
+  alleles,
+  phasedData,
+  hetId,
+  hetSuffix,
+  snpPos,
+  inheritance = .inheritanceIndex(phasedData)
+)
 }
 \arguments{
 \item{received}{Named vector of the allele each child received from the
@@ -20,6 +28,9 @@ heterozygous parent, named by child ID}
 parent ("Pat" or "Mat")}
 
 \item{snpPos}{Physical position of the SNP}
+
+\item{inheritance}{Inheritance index of \code{phasedData} (see
+\code{.inheritanceIndex()})}
 }
 \value{
 The distinct alleles implied for the parent's haplotype 1 by the

@@ -4,7 +4,15 @@
 \alias{.transmittedAllele}
 \title{Allele a Child Received from a Phased Parent}
 \usage{
-.transmittedAllele(child, suffix, parentId, parentHaps, phasedData, snpPos)
+.transmittedAllele(
+  child,
+  suffix,
+  parentId,
+  parentHaps,
+  phasedData,
+  snpPos,
+  inheritance = .inheritanceIndex(phasedData)
+)
 }
 \arguments{
 \item{child}{Child identifier}
@@ -20,6 +28,9 @@ or NULL if the parent is not phased there}
 \item{phasedData}{Data frame with phased informative SNPs}
 
 \item{snpPos}{Physical position of the SNP}
+
+\item{inheritance}{Inheritance index of \code{phasedData} (see
+\code{.inheritanceIndex()})}
 }
 \value{
 The allele on the haplotype the child inherited around the SNP

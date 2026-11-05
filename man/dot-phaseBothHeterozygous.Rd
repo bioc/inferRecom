@@ -4,7 +4,14 @@
 \alias{.phaseBothHeterozygous}
 \title{Phase a SNP Where Both Parents Are Heterozygous}
 \usage{
-.phaseBothHeterozygous(childGeno, alleles, ids, snpPos, phasedData)
+.phaseBothHeterozygous(
+  childGeno,
+  alleles,
+  ids,
+  snpPos,
+  phasedData,
+  inheritance = .inheritanceIndex(phasedData)
+)
 }
 \arguments{
 \item{childGeno}{Named vector of child genotypes}
@@ -16,6 +23,9 @@
 \item{snpPos}{Physical position of the SNP}
 
 \item{phasedData}{Data frame with phased informative SNPs}
+
+\item{inheritance}{Inheritance index of \code{phasedData} (see
+\code{.inheritanceIndex()})}
 }
 \value{
 Named character vector of phased alleles
