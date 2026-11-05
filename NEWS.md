@@ -9,6 +9,17 @@
   alternate allele and every `GT` code was inverted. The phased alleles
   themselves are unchanged.
 
+## New features
+
+* `xoPhase()` phases SNPs where both parents are heterozygous, which were
+  left unphased. Homozygous children carry their only allele; each parent is
+  phased from which of its haplotypes the homozygous children inherited at
+  the nearest phased SNPs on both sides (left unphased if that evidence is
+  missing or conflicting); heterozygous children are then phased from the
+  haplotypes they inherited from the phased parents. On the example data this
+  phases 1619 more genotypes. On simulated families with known haplotypes,
+  all newly phased alleles were correct.
+
 ## Performance
 
 * `xoPhase()` is much faster on chromosomes with many SNPs. It looked up every

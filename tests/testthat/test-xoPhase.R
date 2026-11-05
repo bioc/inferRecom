@@ -692,13 +692,15 @@ test_that("xoPhase output on the example data is unchanged", {
     # so this fails if the phasing result changes. It was updated when REF
     # became PLINK allele 2 (it was allele 1): the old checksum,
     # bab38e7e4f9e382bb7b3b998eeb2fc62, is that of these genotypes with
-    # every 0 and 1 swapped.
+    # every 0 and 1 swapped. It was updated again when SNPs where both parents
+    # are heterozygous were phased: 32c755c39e6336a01d1501d8211e98a5 differs
+    # only in 1619 genotypes at those SNPs, which were '.|.'.
     outFile <- tempfile()
     on.exit(unlink(outFile))
     writeLines(c(rownames(gt), colnames(gt), as.vector(gt)), outFile)
     expect_identical(dim(gt), c(1162L, 28L))
     expect_identical(
-        unname(tools::md5sum(outFile)), "32c755c39e6336a01d1501d8211e98a5"
+        unname(tools::md5sum(outFile)), "a636d3152427be40aea4c2e181173851"
     )
 })
 
@@ -805,6 +807,62 @@ test_that(".phaseOneHeterozygous phases the parent from the children", {
     inconsistent <- phase(c(C1 = 1, C2 = 2, C3 = 1))
     expect_false(any(c("C2Pat", "C2Mat") %in% names(inconsistent)))
     expect_equal(inconsistent[c("F_1", "F_2")], c(F_1 = "T", F_2 = "C"))
+})
+
+test_that(".phaseBothHeterozygous phases parents and children", {
+    # Phased SNPs either side of position 300, where both parents are C/T.
+    # C1 inherited the father's haplotype 1 and the mother's haplotype 1, C2
+    # the father's 2 and the mother's 1, C3 the father's 1 and the mother's 2.
+    # At position 300 the father carries T/C and the mother C/T, so C1 is
+    # T/C (heterozygous), C2 is C/C and C3 is T/T.
+    fHap1 <- c("A", "C", "G", "T")
+    fHap2 <- c("G", "T", "A", "C")
+    mHap1 <- c("A", "A", "G", "G")
+    mHap2 <- c("G", "G", "A", "A")
+    phasedData <- data.frame(
+        rsID = paste0("rs", 1:4), location = c(100, 200, 400, 500),
+        C1Pat = fHap1, C1Mat = mHap1,
+        C2Pat = fHap2, C2Mat = mHap1,
+        C3Pat = fHap1, C3Mat = mHap2,
+        F_1 = fHap1, F_2 = fHap2, M_1 = mHap1, M_2 = mHap2
+    )
+    ids <- list(father = "F", mother = "M", children = c("C1", "C2", "C3"))
+    phase <- function(childGeno) {
+        inferRecom:::.phaseBothHeterozygous(
+            childGeno, c("C", "T"), ids, 300, phasedData
+        )
+    }
+
+    phased <- phase(c(C1 = 1, C2 = 0, C3 = 2))
+    expected <- c(
+        C1Pat = "T", C1Mat = "C", C2Pat = "C", C2Mat = "C",
+        C3Pat = "T", C3Mat = "T", F_1 = "T", F_2 = "C", M_1 = "C", M_2 = "T"
+    )
+    expect_equal(phased[names(expected)], expected)
+
+    # Homozygous children that disagree leave both parents, and so the
+    # heterozygous child, unphased
+    conflict <- phase(c(C1 = 1, C2 = 0, C3 = 0))
+    expect_false(any(c("F_1", "M_1", "C1Pat") %in% names(conflict)))
+    expect_equal(
+        conflict[c("C2Pat", "C3Mat")], c(C2Pat = "C", C3Mat = "C")
+    )
+
+    # A missing genotype leaves that child unphased
+    expect_false("C1Pat" %in% names(phase(c(C1 = NA, C2 = 0, C3 = 2))))
+})
+
+test_that(".completeHeterozygote fills in the other allele", {
+    alleles <- c("C", "T")
+    complete <- function(f, m) {
+        inferRecom:::.completeHeterozygote(c(father = f, mother = m), alleles)
+    }
+
+    expect_equal(complete("T", NA), c("T", "C"))
+    expect_equal(complete(NA, "T"), c("C", "T"))
+    expect_equal(complete("C", "T"), c("C", "T"))
+    expect_null(complete("T", "T"))
+    expect_null(complete(NA, NA))
 })
 
 test_that(".phaseBothHomozygous leaves inconsistent children unphased", {

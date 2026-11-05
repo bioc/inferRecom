@@ -74,7 +74,12 @@ whose genotype is missing or inconsistent with its parents' genotypes is
 left unphased.
 \itemize{
 \item Both parents homozygous: each parent passes on its only allele.
-\item Both parents heterozygous: phase uncertain, set to unknown.
+\item Both parents heterozygous: homozygous children carry their only
+allele. Each parent is phased from which of its haplotypes the
+homozygous children inherited at the nearest phased SNPs on both
+sides, and left unknown if that evidence is missing or
+conflicting. A heterozygous child is phased from the haplotypes it
+inherited from the phased parents.
 \item One parent heterozygous, one homozygous (informative SNPs left out
 because of a missing or inconsistent genotype): each child's alleles
 follow from the genotypes. The heterozygous parent is phased from

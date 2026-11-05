@@ -53,7 +53,12 @@
 #' left unphased.
 #' \itemize{
 #'   \item Both parents homozygous: each parent passes on its only allele.
-#'   \item Both parents heterozygous: phase uncertain, set to unknown.
+#'   \item Both parents heterozygous: homozygous children carry their only
+#'         allele. Each parent is phased from which of its haplotypes the
+#'         homozygous children inherited at the nearest phased SNPs on both
+#'         sides, and left unknown if that evidence is missing or
+#'         conflicting. A heterozygous child is phased from the haplotypes it
+#'         inherited from the phased parents.
 #'   \item One parent heterozygous, one homozygous (informative SNPs left out
 #'         because of a missing or inconsistent genotype): each child's alleles
 #'         follow from the genotypes. The heterozygous parent is phased from
@@ -441,10 +446,14 @@ xoPhase <- function(plinkFile,
     alleles <- c(bim$a1[bimIdx], bim$a2[bimIdx])
 
     ## Infer alleles from the parental genotypes; leave NA when a parent's
-    ## genotype is missing or both parents are heterozygous
+    ## genotype is missing
     hetParents <- parentGeno == 1
-    phased <- if (anyNA(parentGeno) || all(hetParents)) {
+    phased <- if (anyNA(parentGeno)) {
         character()
+    } else if (all(hetParents)) {
+        .phaseBothHeterozygous(
+            childGeno, alleles, ids, bim$pos[bimIdx], phasedData
+        )
     } else if (!any(hetParents)) {
         .phaseBothHomozygous(parentGeno, childGeno, alleles, ids)
     } else {
@@ -551,6 +560,130 @@ xoPhase <- function(plinkFile,
     }
 
     phased
+}
+
+#' Phase a SNP Where Both Parents Are Heterozygous
+#'
+#' A homozygous child received the same allele from both parents, so its
+#' alleles are known. Each parent's phase follows from which of its
+#' haplotypes the homozygous children inherited around the SNP (see
+#' \code{.impliedHap1Alleles()}), and is left as NA if no child gives
+#' evidence or the children disagree. A heterozygous child is phased when
+#' the allele it received from at least one phased parent is known (see
+#' \code{.transmittedAllele()}); the other parent passed on the other
+#' allele. It is left as NA if the alleles from the two parents are known
+#' and equal, which a heterozygous child cannot have.
+#'
+#' @param childGeno Named vector of child genotypes
+#' @param alleles Allele 1 and allele 2 of the SNP
+#' @param ids List with \code{father}, \code{mother} and \code{children} IDs
+#' @param snpPos Physical position of the SNP
+#' @param phasedData Data frame with phased informative SNPs
+#'
+#' @return Named character vector of phased alleles
+#' @keywords internal
+.phaseBothHeterozygous <- function(childGeno, alleles, ids, snpPos,
+    phasedData) {
+    ## Homozygous children received the same allele from both parents
+    hom <- childGeno %in% c(0, 2)
+    received <- setNames(alleles[childGeno[hom] / 2 + 1], ids$children[hom])
+    phased <- c(
+        setNames(received, paste0(names(received), "Pat", recycle0 = TRUE)),
+        setNames(received, paste0(names(received), "Mat", recycle0 = TRUE))
+    )
+
+    ## Each parent's phase, from the homozygous children
+    suffix <- c(father = "Pat", mother = "Mat")
+    parentHaps <- lapply(names(suffix), function(parent) {
+        impliedHap1 <- if (length(received) == 0L) {
+            character()
+        } else {
+            .impliedHap1Alleles(
+                received, alleles, phasedData, ids[[parent]],
+                suffix[[parent]], snpPos
+            )
+        }
+        if (length(impliedHap1) != 1L) {
+            return(NULL)
+        }
+        c(impliedHap1, alleles[3L - match(impliedHap1, alleles)])
+    })
+    names(parentHaps) <- names(suffix)
+    parentPhased <- unlist(lapply(names(suffix), function(parent) {
+        if (!is.null(parentHaps[[parent]])) {
+            setNames(parentHaps[[parent]], paste0(ids[[parent]], c("_1", "_2")))
+        }
+    }))
+
+    ## Heterozygous children, from the alleles the phased parents passed on
+    hetChildren <- ids$children[childGeno %in% 1]
+    childPhased <- unlist(lapply(hetChildren, function(child) {
+        fromParents <- vapply(names(suffix), function(parent) {
+            .transmittedAllele(
+                child, suffix[[parent]], ids[[parent]],
+                parentHaps[[parent]], phasedData, snpPos
+            )
+        }, character(1))
+        childAlleles <- .completeHeterozygote(fromParents, alleles)
+        if (!is.null(childAlleles)) {
+            setNames(childAlleles, paste0(child, c("Pat", "Mat")))
+        }
+    }))
+
+    c(phased, parentPhased, childPhased)
+}
+
+#' Allele a Child Received from a Phased Parent
+#'
+#' @param child Child identifier
+#' @param suffix Suffix of the child's haplotype columns from this parent
+#'     ("Pat" or "Mat")
+#' @param parentId Parent identifier
+#' @param parentHaps The parent's alleles on haplotypes 1 and 2 at the SNP,
+#'     or NULL if the parent is not phased there
+#' @param phasedData Data frame with phased informative SNPs
+#' @param snpPos Physical position of the SNP
+#'
+#' @return The allele on the haplotype the child inherited around the SNP
+#'     (see \code{.inheritedHaplotype()}), or NA if unknown
+#' @keywords internal
+.transmittedAllele <- function(child, suffix, parentId, parentHaps,
+    phasedData, snpPos) {
+    if (is.null(parentHaps)) {
+        return(NA_character_)
+    }
+
+    inherited <- .inheritedHaplotype(
+        phasedData[[paste0(child, suffix)]],
+        phasedData[[paste0(parentId, "_1")]],
+        phasedData[[paste0(parentId, "_2")]],
+        as.numeric(phasedData$location), snpPos
+    )
+    if (is.na(inherited)) NA_character_ else parentHaps[[inherited]]
+}
+
+#' Alleles of a Heterozygous Child
+#'
+#' @param fromParents Alleles received from the father and the mother, NA
+#'     where unknown
+#' @param alleles Allele 1 and allele 2 of the SNP
+#'
+#' @return The paternal and maternal alleles, or NULL if neither is known or
+#'     both are known and equal
+#' @keywords internal
+.completeHeterozygote <- function(fromParents, alleles) {
+    known <- !is.na(fromParents)
+    if (!any(known)) {
+        return(NULL)
+    }
+    if (all(known)) {
+        return(if (fromParents[[1]] != fromParents[[2]]) unname(fromParents))
+    }
+
+    ## The other parent passed on the other allele
+    other <- alleles[3L - match(fromParents[known], alleles)]
+    fromParents[!known] <- other
+    unname(fromParents)
 }
 
 #' Heterozygous Parent's Haplotype 1 as Implied by Each Child
