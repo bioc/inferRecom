@@ -1,5 +1,14 @@
 # inferRecom (development version)
 
+## Breaking changes
+
+* `xoPhase()` now takes `REF` from PLINK allele 2 (BIM column 6) and `ALT`
+  from allele 1 (BIM column 5), the convention of plink2 and of PLINK 1.9
+  with `--keep-allele-order`. Before, `REF` and `ALT` were the other way
+  round, so for data converted from a VCF with plink2 every `REF` was the
+  alternate allele and every `GT` code was inverted. The phased alleles
+  themselves are unchanged.
+
 ## Performance
 
 * `xoPhase()` is much faster on chromosomes with many SNPs. It looked up every

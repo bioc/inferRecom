@@ -21,8 +21,12 @@
 #' @return A \link[VariantAnnotation:VCF-class]{VCF} object with one row per
 #'     SNP and one column per family member, for all phased families. The
 #'     \code{GT} genotype field holds phased genotypes (e.g. \code{"0|1"}),
-#'     coded against \code{REF} (PLINK allele 1) and \code{ALT} (PLINK
-#'     allele 2); \code{"."} marks an allele that could not be phased. For
+#'     coded against \code{REF} (PLINK allele 2, BIM column 6) and \code{ALT}
+#'     (PLINK allele 1, BIM column 5), the convention of plink2 and of PLINK
+#'     1.9 with \code{--keep-allele-order}. A BIM file made by PLINK 1.9
+#'     without that flag has the minor allele first, so \code{REF} is then
+#'     the major allele, not necessarily the reference allele;
+#'     \code{"."} marks an allele that could not be phased. For
 #'     children the first allele is paternal and the second maternal; for
 #'     parents the alleles are the two phased haplotypes. \code{colData}
 #'     holds \code{familyId}, \code{fatherId}, \code{motherId}, \code{sex}
@@ -1038,8 +1042,10 @@ xoPhase <- function(plinkFile,
     snpOrder <- order(bim$chr[bimIdx], bim$pos[bimIdx])
     snps <- snps[snpOrder]
     bimIdx <- bimIdx[snpOrder]
-    ref <- bim$a1[bimIdx]
-    alt <- bim$a2[bimIdx]
+    ## plink2 (and PLINK 1.9 with --keep-allele-order) writes ALT as allele 1
+    ## and REF as allele 2
+    ref <- bim$a2[bimIdx]
+    alt <- bim$a1[bimIdx]
 
     ## Phased genotypes, with samples in FAM file order
     gtList <- lapply(phaseList, .familyGenotypes,
@@ -1053,13 +1059,14 @@ xoPhase <- function(plinkFile,
     sampleIds <- sampleIds[order(match(sampleIds, fam$member))]
     gt <- gt[, sampleIds, drop = FALSE]
 
-    ## SNP positions and alleles; PLINK codes a missing allele as "0"
+    ## SNP positions and alleles; PLINK codes a missing allele as "0" (or "."
+    ## in plink2), which is the ALT allele of a monomorphic SNP
     snpRanges <- GRanges(
         seqnames = .ucscChromosome(bim$chr[bimIdx]),
         ranges = IRanges(bim$pos[bimIdx], width = 1L, names = snps)
     )
     altList <- DNAStringSetList(lapply(alt, function(a) {
-        if (a == "0") character() else a
+        if (a %in% c("0", ".")) character() else a
     }))
 
     VCF(

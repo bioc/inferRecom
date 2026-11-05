@@ -342,6 +342,46 @@ test_that("xoPhase output can be written with writeVcf", {
     expect_equal(unname(geno(roundTrip)$GT), unname(geno(testResult)$GT))
 })
 
+test_that("xoPhase takes REF from PLINK allele 2 and ALT from allele 1", {
+    skip_if_not(checkTestData(), "Test data not available")
+
+    testData <- loadSimCeuData()
+    xo <- loadXo(testData)
+
+    testResult <- xoPhase(
+        plinkFile = testData$plinkFile,
+        xoDetectPaternal = xo$pat,
+        xoDetectMaternal = xo$mat,
+        famIds = c("F4", "F6")
+    )
+
+    bim <- read.table(paste0(testData$plinkFile, ".bim"),
+        col.names = c("chr", "snp", "cm", "pos", "a1", "a2")
+    )
+    bimIdx <- match(rownames(testResult), bim$snp)
+    expect_false(anyNA(bimIdx))
+    expect_equal(as.character(ref(testResult)), bim$a2[bimIdx])
+    expect_equal(
+        vapply(as.list(alt(testResult)), function(a) as.character(a)[1], ""),
+        bim$a1[bimIdx],
+        ignore_attr = TRUE
+    )
+
+    ## A parent homozygous for allele 1 (ALT) is coded 1|1 and one
+    ## homozygous for allele 2 (REF) 0|0. snpStats counts copies of allele 2.
+    gt <- geno(testResult)$GT
+    parentId <- "F4P1"
+    plink <- snpStats::read.plink(testData$plinkFile)
+    copiesA2 <- as(plink$genotypes[parentId, rownames(gt)], "numeric")[1, ]
+    phased <- gt[, parentId] != ".|."
+    hom1 <- which(copiesA2 == 0 & phased)
+    hom2 <- which(copiesA2 == 2 & phased)
+    expect_gt(length(hom1), 0L)
+    expect_gt(length(hom2), 0L)
+    expect_true(all(gt[hom1, parentId] == "1|1"))
+    expect_true(all(gt[hom2, parentId] == "0|0"))
+})
+
 ## ============================================================================
 ## Phasing Quality Tests
 ## ============================================================================
@@ -649,13 +689,16 @@ test_that("xoPhase output on the example data is unchanged", {
 
     # The md5 checksum of the SNP IDs, sample names and genotypes was taken
     # before xoPhase() was made faster (SNP lookups done once, not per SNP),
-    # so this fails if the phasing result changes
+    # so this fails if the phasing result changes. It was updated when REF
+    # became PLINK allele 2 (it was allele 1): the old checksum,
+    # bab38e7e4f9e382bb7b3b998eeb2fc62, is that of these genotypes with
+    # every 0 and 1 swapped.
     outFile <- tempfile()
     on.exit(unlink(outFile))
     writeLines(c(rownames(gt), colnames(gt), as.vector(gt)), outFile)
     expect_identical(dim(gt), c(1162L, 28L))
     expect_identical(
-        unname(tools::md5sum(outFile)), "bab38e7e4f9e382bb7b3b998eeb2fc62"
+        unname(tools::md5sum(outFile)), "32c755c39e6336a01d1501d8211e98a5"
     )
 })
 
