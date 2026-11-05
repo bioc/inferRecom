@@ -642,18 +642,25 @@ test_that(".getOtherAllele works on vectors and keeps their order", {
     )
 
     expect_equal(
-        inferRecom:::.getOtherAllele(c("rs3", "rs1", "rs2"), c("A", "A", "G"), bim),
+        inferRecom:::.getOtherAllele(
+            c("rs3", "rs1", "rs2"), c("A", "A", "G"), bim
+        ),
         c("G", "T", "C")
     )
     # A SNP that is not in the BIM file gives NA and does not affect the rest
     expect_equal(
-        inferRecom:::.getOtherAllele(c("rs1", "rs999", "rs2"), c("T", "A", "C"), bim),
+        inferRecom:::.getOtherAllele(
+            c("rs1", "rs999", "rs2"), c("T", "A", "C"), bim
+        ),
         c("A", NA, "G")
     )
-    expect_equal(inferRecom:::.getOtherAllele(character(), character(), bim), character())
+    expect_equal(
+        inferRecom:::.getOtherAllele(character(), character(), bim),
+        character()
+    )
 })
 
-test_that(".phaseNonInformativeSnp gives the same result with precomputed rows", {
+test_that(".phaseNonInformativeSnp gives the same result with row indices", {
     phasedData <- data.frame(
         rsID = "rs1", location = 100,
         C1Pat = "A", C1Mat = "G", C2Pat = "G", C2Mat = "G",
