@@ -593,6 +593,72 @@ test_that(".getOtherAllele retrieves complementary alleles", {
     expect_true(is.na(inferRecom:::.getOtherAllele("rs999", "A", bim)))
 })
 
+test_that(".getOtherAllele works on vectors and keeps their order", {
+    bim <- data.frame(
+        snp = c("rs1", "rs2", "rs3"),
+        a1 = c("A", "C", "G"),
+        a2 = c("T", "G", "A"),
+        stringsAsFactors = FALSE
+    )
+
+    expect_equal(
+        inferRecom:::.getOtherAllele(c("rs3", "rs1", "rs2"), c("A", "A", "G"), bim),
+        c("G", "T", "C")
+    )
+    # A SNP that is not in the BIM file gives NA and does not affect the rest
+    expect_equal(
+        inferRecom:::.getOtherAllele(c("rs1", "rs999", "rs2"), c("T", "A", "C"), bim),
+        c("A", NA, "G")
+    )
+    expect_equal(inferRecom:::.getOtherAllele(character(), character(), bim), character())
+})
+
+test_that(".phaseNonInformativeSnp gives the same result with precomputed rows", {
+    phasedData <- data.frame(
+        rsID = "rs1", location = 100,
+        C1Pat = "A", C1Mat = "G", C2Pat = "G", C2Mat = "G",
+        F_1 = "A", F_2 = "G", M_1 = "G", M_2 = "G"
+    )
+    geno <- rbind(rs1 = c(1, 2, 1, 2), rs2 = c(0, 2, 1, 1), rs3 = c(2, 0, 1, 0))
+    colnames(geno) <- c("F", "M", "C1", "C2")
+    bim <- data.frame(
+        chr = 4, snp = c("rs1", "rs2", "rs3"), cm = 0, pos = c(100, 200, 300),
+        a1 = c("A", "C", "T"), a2 = c("G", "T", "A")
+    )
+    ids <- list(father = "F", mother = "M", children = c("C1", "C2"))
+
+    for (snp in c("rs2", "rs3")) {
+        byName <- inferRecom:::.phaseNonInformativeSnp(
+            snp, geno, bim, ids, 1L, 2L, phasedData
+        )
+        byRow <- inferRecom:::.phaseNonInformativeSnp(
+            snp, geno, bim, ids, 1L, 2L, phasedData,
+            bimIdx = match(snp, bim$snp), rowIdx = match(snp, rownames(geno))
+        )
+        expect_identical(byRow, byName)
+    }
+})
+
+test_that("xoPhase output on the example data is unchanged", {
+    skip_if_not(checkTestData(), "Test data not available")
+
+    testData <- loadSimCeuData()
+    xo <- loadXo(testData)
+    phased <- xoPhase(testData$plinkFile, xo$pat, xo$mat)
+    gt <- geno(phased)$GT
+
+    # The md5 checksum of the SNP IDs, sample names and genotypes was taken
+    # before xoPhase() was made faster (SNP lookups done once, not per SNP),
+    # so this fails if the phasing result changes
+    outFile <- tempfile()
+    on.exit(unlink(outFile))
+    writeLines(c(rownames(gt), colnames(gt), as.vector(gt)), outFile)
+    expect_identical(dim(gt), c(1162L, 28L))
+    expect_identical(
+        unname(tools::md5sum(outFile)), "bab38e7e4f9e382bb7b3b998eeb2fc62"
+    )
+})
+
 test_that(".phaseChildren pairs each child's paternal and maternal alleles", {
     pat <- data.frame(
         rsID = c("rs1", "rs2"), location = c("100", "200"),

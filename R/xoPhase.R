@@ -377,11 +377,15 @@ xoPhase <- function(plinkFile,
     )
 
     ## Phase each non-informative SNP; one character row per SNP
-    nonInfMatrix <- t(vapply(nonInfSnps, function(snpId) {
+    bimIdx <- match(nonInfSnps, bim$snp)
+    rowIdx <- match(nonInfSnps, rownames(genoSubset))
+    nonInfMatrix <- t(vapply(seq_along(nonInfSnps), function(i) {
         .phaseNonInformativeSnp(
-            snpId, genoSubset, bim, ids, fatherCol, motherCol, phasedData
+            nonInfSnps[i], genoSubset, bim, ids, fatherCol, motherCol,
+            phasedData,
+            bimIdx = bimIdx[i], rowIdx = rowIdx[i]
         )
-    }, character(ncol(phasedData)), USE.NAMES = FALSE))
+    }, character(ncol(phasedData))))
     colnames(nonInfMatrix) <- colnames(phasedData)
     nonInfDf <- as.data.frame(nonInfMatrix, stringsAsFactors = FALSE)
 
@@ -404,17 +408,22 @@ xoPhase <- function(plinkFile,
 #' @param ids List with \code{father}, \code{mother} and \code{children} IDs
 #' @param fatherCol,motherCol Column indices for the parents in genoSubset
 #' @param phasedData Data frame with phased informative SNPs
+#' @param bimIdx Row of \code{bim} for the SNP. Pass it when phasing many SNPs
+#'     so that the lookup is done once for all of them, not once per SNP.
+#'     Defaults to \code{match(snpId, bim$snp)}.
+#' @param rowIdx Row of \code{genoSubset} for the SNP, passed for the same
+#'     reason. Defaults to \code{match(snpId, rownames(genoSubset))}.
 #'
 #' @return Named character vector with one value per column of phasedData:
 #'     the SNP ID, its location and the phased alleles, NA where unknown. All
 #'     NA for a SNP that is not in the BIM file.
 #' @keywords internal
 .phaseNonInformativeSnp <- function(snpId, genoSubset, bim, ids, fatherCol,
-    motherCol, phasedData) {
+    motherCol, phasedData, bimIdx = match(snpId, bim$snp),
+    rowIdx = match(snpId, rownames(genoSubset))) {
     row <- setNames(
         rep(NA_character_, ncol(phasedData)), colnames(phasedData)
     )
-    bimIdx <- match(snpId, bim$snp)
 
     if (is.na(bimIdx)) {
         return(row)
@@ -423,8 +432,8 @@ xoPhase <- function(plinkFile,
     row["rsID"] <- snpId
     row["location"] <- as.character(bim$pos[bimIdx])
 
-    parentGeno <- genoSubset[snpId, c(fatherCol, motherCol)]
-    childGeno <- genoSubset[snpId, ids$children]
+    parentGeno <- genoSubset[rowIdx, c(fatherCol, motherCol)]
+    childGeno <- genoSubset[rowIdx, ids$children]
     alleles <- c(bim$a1[bimIdx], bim$a2[bimIdx])
 
     ## Infer alleles from the parental genotypes; leave NA when a parent's
@@ -952,9 +961,7 @@ xoPhase <- function(plinkFile,
     names(hap1) <- actgMatrix$rsID
 
     ## Haplotype 2 carries the other allele, except at homozygous sites
-    hap2 <- vapply(seq_along(hap1), function(i) {
-        .getOtherAllele(names(hap1)[i], hap1[i], bim)
-    }, character(1))
+    hap2 <- .getOtherAllele(names(hap1), unname(hap1), bim)
     homSites <- which(actgMatrix$hom == 0)
     hap2[homSites] <- hap1[homSites]
 
@@ -992,33 +999,28 @@ xoPhase <- function(plinkFile,
     ## are the same on both haplotypes.
     nXo <- findInterval(actgMatrix$location, sort(xoChild$end))
     switchIdx <- which(nXo %% 2 == 1 & actgMatrix$hom != 0)
-    alleles[switchIdx] <- vapply(switchIdx, function(j) {
-        .getOtherAllele(actgMatrix$rsID[j], alleles[j], bim)
-    }, character(1))
+    alleles[switchIdx] <- .getOtherAllele(
+        actgMatrix$rsID[switchIdx], alleles[switchIdx], bim
+    )
 
     alleles
 }
 
 #' Get Complementary Allele
 #'
-#' @param snpId SNP identifier
-#' @param allele Current allele (A, C, G, or T)
+#' Vectorised: looks all the SNPs up in the BIM file with one \code{match()}.
+#'
+#' @param snpId SNP identifiers
+#' @param allele Current alleles (A, C, G, or T), one per SNP
 #' @param bim BIM data frame
 #'
-#' @return Complementary allele
+#' @return Complementary alleles, NA for a SNP that is not in the BIM file
 #' @keywords internal
 .getOtherAllele <- function(snpId, allele, bim) {
-    bimIdx <- which(bim$snp == snpId)
-
-    if (length(bimIdx) == 0L) {
-        return(NA_character_)
-    }
-
-    if (bim$a1[bimIdx[1]] == allele) {
-        return(bim$a2[bimIdx[1]])
-    } else {
-        return(bim$a1[bimIdx[1]])
-    }
+    bimIdx <- match(snpId, bim$snp)
+    other <- ifelse(bim$a1[bimIdx] == allele, bim$a2[bimIdx], bim$a1[bimIdx])
+    other[is.na(bimIdx)] <- NA_character_
+    as.character(other)
 }
 
 #' Convert Phased Families to a VCF Object

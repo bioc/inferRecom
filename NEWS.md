@@ -1,3 +1,14 @@
+# inferRecom (development version)
+
+## Performance
+
+* `xoPhase()` is much faster on chromosomes with many SNPs. It looked up every
+  SNP in the BIM file and the genotype matrix by name, once per SNP, so the
+  run time grew with the square of the number of SNPs. The rows are now found
+  once for all SNPs. On a chromosome with 66,130 SNPs (chr21 of a
+  whole-genome family data set) the run time fell from 186 s to 5 s, and the
+  phased genotypes are unchanged.
+
 # inferRecom 0.99.3
 
 ## Breaking changes

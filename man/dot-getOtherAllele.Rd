@@ -7,16 +7,16 @@
 .getOtherAllele(snpId, allele, bim)
 }
 \arguments{
-\item{snpId}{SNP identifier}
+\item{snpId}{SNP identifiers}
 
-\item{allele}{Current allele (A, C, G, or T)}
+\item{allele}{Current alleles (A, C, G, or T), one per SNP}
 
 \item{bim}{BIM data frame}
 }
 \value{
-Complementary allele
+Complementary alleles, NA for a SNP that is not in the BIM file
 }
 \description{
-Get Complementary Allele
+Vectorised: looks all the SNPs up in the BIM file with one \code{match()}.
 }
 \keyword{internal}

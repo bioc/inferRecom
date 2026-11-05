@@ -11,7 +11,9 @@
   ids,
   fatherCol,
   motherCol,
-  phasedData
+  phasedData,
+  bimIdx = match(snpId, bim$snp),
+  rowIdx = match(snpId, rownames(genoSubset))
 )
 }
 \arguments{
@@ -26,6 +28,13 @@
 \item{fatherCol, motherCol}{Column indices for the parents in genoSubset}
 
 \item{phasedData}{Data frame with phased informative SNPs}
+
+\item{bimIdx}{Row of \code{bim} for the SNP. Pass it when phasing many SNPs
+so that the lookup is done once for all of them, not once per SNP.
+Defaults to \code{match(snpId, bim$snp)}.}
+
+\item{rowIdx}{Row of \code{genoSubset} for the SNP, passed for the same
+reason. Defaults to \code{match(snpId, rownames(genoSubset))}.}
 }
 \value{
 Named character vector with one value per column of phasedData:
