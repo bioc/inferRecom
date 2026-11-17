@@ -27,8 +27,8 @@ Description: This package implements a nuclear family-based algorithm to detect
     maps or a SNP-count filter. Additional functions are supplied to detect 
     runs of homozygosity and to phase haplotypes at informative SNPs and 
     intervals that are inferred identical-by-descent. Recombination intervals 
-    and runs of homozygosity are returned as GRanges objects, and phased 
-    genotypes are returned as a VariantAnnotation VCF object, for use with 
+    and runs of homozygosity are returned as `GRanges` objects, and phased 
+    genotypes are returned as a `VariantAnnotation` `VCF` object, for use with 
     other Bioconductor packages and genome browsers.
 License: GPL (>= 3)
 Encoding: UTF-8
