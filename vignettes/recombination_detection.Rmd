@@ -234,7 +234,7 @@ sexavg_chr4 <- file.path(exampleDir, "sexavg_chr4.txt")
 hzRun(simCEU, sexavg_chr4)
 ```
 
-# Phasing at Informative SNPs
+# Chromosome-scale phasing
 
 Inferring recombination implies identity by descent in between the informative
 SNPs, allowing for the phasing of this subset of SNPs in the pedigrees with
@@ -245,13 +245,20 @@ novel phasing algorithm to produce long-range haplotype phase information at
 informative SNPs. Using the information in the nuclear family structures, it is
 possible to obtain chromosome-scale haplotypes at the informative subset of
 SNPs. In these data, between 14% and 36% of SNPs are informative, depending on
-the family. Homozygous SNPs are also reported, and alleles that cannot be phased
-are shown as `.`.
+the family. 
 
 The function `xoPhase()` uses the sets of maternal and paternal recombinations
 to infer haplotype phase at all informative SNPs for all members of each the
-nuclear families with three or more children. There is also an option to specify
-a subset of family IDs for phasing (`famIds`).
+nuclear families with three or more children. 
+
+SNPs that are not informative are still phased where the genotypes and 
+surrounding haplotypes allow. Where both parents are homozygous, each child's 
+alleles follow directly. At a SNP where one or both parents are heterozygous, 
+the child's inheritance is inferred from the nearest flanking phased SNPs, 
+which are identical by descent unless there is a recombination between them.  
+In these simulated data, 100% of SNPs can be phased. In real data, coverage 
+will depend on missing data and inconsistent genotypes. There is an option to 
+specify a subset of family IDs for phasing (`famIds`).
 
 The output is a `VCF` object from `VariantAnnotation`
 [@obenchain2014variantannotation], with one column per

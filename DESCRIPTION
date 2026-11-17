@@ -1,5 +1,5 @@
 Package: inferRecom
-Title: Homologous Recombination  Detection in Family Pedigrees
+Title: Homologous Recombination Detection in Nuclear Families
 Version: 0.99.3
 Authors@R: c(
     person("Catherine", "Mahoney", 
@@ -19,9 +19,17 @@ Authors@R: c(
       role = "fnd",                  
       comment = "Grant EPSPG/2019/443"
     ))
-Description: This package implements a pedigree-based algorithm to detect 
-    homologous recombination. Additional functions are supplied to detect runs 
-    of homozygosity and to phase haplotypes at informative SNPs.
+Description: This package implements a nuclear family-based algorithm to detect 
+    homologous recombination. Using genotypes in PLINK binary format, 
+    recombination events are inferred from changes in the inheritance state of 
+    informative SNPs between siblings. Closely spaced crossovers that are 
+    unlikely to represent true recombination can be filtered out using genetic 
+    maps or a SNP-count filter. Additional functions are supplied to detect 
+    runs of homozygosity and to phase haplotypes at informative SNPs and 
+    intervals that are inferred identical-by-descent. Recombination intervals 
+    and runs of homozygosity are returned as GRanges objects, and phased 
+    genotypes are returned as a VariantAnnotation VCF object, for use with 
+    other Bioconductor packages and genome browsers.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
