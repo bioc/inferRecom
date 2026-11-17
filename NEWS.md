@@ -1,4 +1,4 @@
-# inferRecom (development version)
+# inferRecom 0.99.4
 
 ## Breaking changes
 
@@ -28,6 +28,16 @@
   once for all SNPs. On a chromosome with 66,130 SNPs (chr21 of a
   whole-genome family data set) the run time fell from 186 s to 5 s, and the
   phased genotypes are unchanged.
+
+## Other changes
+
+* `hzRun()` calls the per-sample ROH detection directly, without an internal
+  wrapper function.
+
+## Documentation
+
+* The package Description and the vignette describe the phasing of SNPs
+  beyond the informative SNPs.
 
 # inferRecom 0.99.3
 

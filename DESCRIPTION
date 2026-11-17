@@ -1,6 +1,6 @@
 Package: inferRecom
 Title: Homologous Recombination Detection in Nuclear Families
-Version: 0.99.3
+Version: 0.99.4
 Authors@R: c(
     person("Catherine", "Mahoney", 
       email = "catherine.f.mahoney@gmail.com", 
