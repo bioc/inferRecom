@@ -316,37 +316,6 @@ hzRun <- function(plinkFile,
     unname(resultMat)
 }
 
-#' Process Single Individual for ROH Detection
-#'
-#' Wrapper function for parallel processing of a single individual
-#'
-#' @param sampleIdx Integer index of sample in genotype matrix
-#' @param genoMatrix Matrix of genotypes (SNPs x samples)
-#' @param locationVec Physical positions of SNPs
-#' @param snpNames SNP identifiers
-#' @param sampleIds Sample identifiers
-#' @param minSnps Minimum number of SNPs
-#' @param minBp Minimum physical length
-#' @param geneticMap Genetic map data frame or NULL
-#' @param minCm Minimum genetic length or NULL
-#'
-#' @return Matrix with ROH information, or NULL
-#' @keywords internal
-.processSingleIndividual <- function(sampleIdx, genoMatrix, locationVec,
-    snpNames, sampleIds, minSnps, minBp,
-    geneticMap, minCm) {
-    .detectRohSample(
-        genoVec = genoMatrix[, sampleIdx],
-        locationVec = locationVec,
-        snpNames = snpNames,
-        sampleId = sampleIds[sampleIdx],
-        minSnps = minSnps,
-        minBp = minBp,
-        geneticMap = geneticMap,
-        minCm = minCm
-    )
-}
-
 #' Detect ROH Across All Samples
 #'
 #' Efficiently processes all samples to detect runs of homozygosity
@@ -371,12 +340,11 @@ hzRun <- function(plinkFile,
 
     ## Process all samples in parallel
     rohList <- bplapply(seq_len(numSamples), function(i) {
-        .processSingleIndividual(
-            sampleIdx = i,
-            genoMatrix = genoMatrix,
+        .detectRohSample(
+            genoVec = genoMatrix[, i],
             locationVec = locationVec,
             snpNames = snpNames,
-            sampleIds = sampleIds,
+            sampleId = sampleIds[i],
             minSnps = minSnps,
             minBp = minBp,
             geneticMap = geneticMap,
