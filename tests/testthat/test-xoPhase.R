@@ -702,9 +702,13 @@ test_that("xoPhase output on the example data is unchanged", {
     # every 0 and 1 swapped. It was updated again when SNPs where both parents
     # are heterozygous were phased: 32c755c39e6336a01d1501d8211e98a5 differs
     # only in 1619 genotypes at those SNPs, which were '.|.'.
+    # The file is written in binary mode with "\n" line endings, so the
+    # checksum is the same on Windows, where writeLines() would use "\r\n".
     outFile <- tempfile()
     on.exit(unlink(outFile))
-    writeLines(c(rownames(gt), colnames(gt), as.vector(gt)), outFile)
+    con <- file(outFile, "wb")
+    writeLines(c(rownames(gt), colnames(gt), as.vector(gt)), con, sep = "\n")
+    close(con)
     expect_identical(dim(gt), c(1162L, 28L))
     expect_identical(
         unname(tools::md5sum(outFile)), "a636d3152427be40aea4c2e181173851"
