@@ -1,3 +1,11 @@
+# inferRecom 0.99.5
+
+## Other changes
+
+* A unit test failed on Windows only, because a checksum of the phased
+  genotypes depended on the operating system's line endings. The test now
+  writes the same bytes on every platform; package results are unchanged.
+
 # inferRecom 0.99.4
 
 ## Breaking changes
